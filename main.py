@@ -3,33 +3,33 @@ import sqlite3
 import random
 import time
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-# --- 1. CONFIGURATION & SECURITY ---
+# --- 1. CREDENTIALS & SECURITY ---
 BOT_TOKEN = "8963537516:AAHai5H9r3R8sOc8Y1LzYRtPfkAKpUGvTHI"
 ADMIN_ID = 8721064016
-POSTBACK_SECRET = "ZyvaroSecureKey2026"  # यह सीक्रेट की हैकर्स को ब्लॉक रखेगी
+POSTBACK_SECRET = "ZyvaroSecureKey2026"
+ADSGRAM_BLOCK_ID = "1njoD0"  # आपकी Adsgram Block ID
 
-COINS_PER_RUPEE = 10  # 10 Coins = ₹1 (100 Coins = ₹10)
+COINS_PER_RUPEE = 10 
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 app = FastAPI()
 
-# Anti-Spam Rate Limiter (Memory Storage)
 user_last_click = {}
-
 def is_spamming(user_id: int) -> bool:
     now = time.time()
     last = user_last_click.get(user_id, 0)
-    if now - last < 1.5:  # 1.5 सेकंड से पहले दोबारा क्लिक करने पर ब्लॉक
+    if now - last < 1.2:
         return True
     user_last_click[user_id] = now
     return False
 
-# --- 2. DATABASE INITIALIZATION ---
+# --- 2. DATABASE ---
 def init_db():
     conn = sqlite3.connect("database.db")
     cur = conn.cursor()
@@ -41,7 +41,9 @@ def init_db():
             referral_rewarded INTEGER DEFAULT 0,
             last_checkin INTEGER DEFAULT 0,
             streak_days INTEGER DEFAULT 0,
-            scratch_cards INTEGER DEFAULT 0
+            scratch_cards INTEGER DEFAULT 0,
+            ads_watched_today INTEGER DEFAULT 0,
+            last_ad_time INTEGER DEFAULT 0
         )
     """)
     cur.execute("""
@@ -76,22 +78,25 @@ def init_db():
         )
     """)
     
-    # डिफ़ॉल्ट टास्क इंसर्ट करें
+    # आपके असली लिंक्स यहाँ सेट किए गए हैं
     cur.execute("""
-        INSERT OR IGNORE INTO tasks (task_id, title, url, coins_reward) 
-        VALUES ('navi_01', 'Navi UPI / Gold (Download & ₹1 Pay)', 'https://affiliate.example.com/click?sub1=', 70)
+        INSERT OR REPLACE INTO tasks (task_id, title, url, coins_reward) 
+        VALUES ('navi_app', '🟢 Navi UPI / Cash (Download & Setup)', 'https://r.navi.com/tQWBgB?sub1=', 70)
     """)
     cur.execute("""
-        INSERT OR IGNORE INTO tasks (task_id, title, url, coins_reward) 
-        VALUES ('kotak_01', 'Kotak 811 Zero Balance Account', 'https://affiliate.example.com/click?sub1=', 250)
+        INSERT OR REPLACE INTO tasks (task_id, title, url, coins_reward) 
+        VALUES ('phonepe_app', '🟣 PhonePe UPI (Send ₹1)', 'https://phon.pe/ozu7alu7?sub1=', 50)
     """)
     cur.execute("""
-        INSERT OR IGNORE INTO tasks (task_id, title, url, coins_reward) 
-        VALUES ('angel_01', 'Angel One Demat Account', 'https://affiliate.example.com/click?sub1=', 500)
+        INSERT OR REPLACE INTO tasks (task_id, title, url, coins_reward) 
+        VALUES ('extp_task1', '🔵 Special Cash Offer 1', 'https://extp.in/YOxbJV?sub1=', 60)
     """)
-    # डेमो लिफाफा कोड
     cur.execute("""
-        INSERT OR IGNORE INTO lifafa (code, reward, max_claims) 
+        INSERT OR REPLACE INTO tasks (task_id, title, url, coins_reward) 
+        VALUES ('extp_task2', '🟡 Special Cash Offer 2', 'https://extp.in/4SwYOi?sub1=', 80)
+    """)
+    cur.execute("""
+        INSERT OR REPLACE INTO lifafa (code, reward, max_claims) 
         VALUES ('ZYVARO50', 10, 50)
     """)
     conn.commit()
@@ -99,7 +104,7 @@ def init_db():
 
 init_db()
 
-# --- 3. BOT CORE HANDLERS ---
+# --- 3. BOT HANDLERS ---
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
@@ -122,19 +127,25 @@ async def cmd_start(message: types.Message):
     conn.close()
 
     text = (
-        f"👋 **नमस्ते {message.from_user.first_name}!**\n\n"
-        f"💰 **Zyvaro Earn Bot में आपका स्वागत है!**\n\n"
-        f"🔹 **10 Coins = ₹1**\n"
-        f"🔹 नए ऐप्स इंस्टॉल करें और डायरेक्ट बैंक विड्रॉल लें।\n"
-        f"🔹 दोस्त को जोड़ें और पाएँ **100 Coins (₹10)** जब वह पहला ऐप इंस्टॉल करे।"
+        f"👋 **नमस्ते {message.from_user.first_name}!** 🌟\n\n"
+        f"💎 **Zyvaro Earn Club — Daily Cash & Rewards** 💎\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🪙 **10 Coins = ₹1.00**  |  ⚡ **Fast UPI Cashouts**\n"
+        f"🎁 **Daily Loot:** हर ऐप इंस्टॉल पर पाएँ **Flat Cash + 1 Lucky Scratch Card** 🎟️\n"
+        f"👑 दोस्त को जोड़ें और पाएँ **100 Coins (₹10)** जब वह पहला टास्क पूरा करे!\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"👇 **नीचे दिए गए बटन दबाकर तुरंत कमाना शुरू करें:**"
     )
     
+    # Mini App Video Ad URL
+    ad_url = "https://zyvaro-earn-bot.onrender.com/watch-ad-page"
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Tasks (CPA ऑफर्स)", callback_data="tasks")],
-        [InlineKeyboardButton(text="👛 Wallet / Balance", callback_data="wallet"), InlineKeyboardButton(text="👥 Refer & Earn", callback_data="refer")],
-        [InlineKeyboardButton(text="🎁 Daily Streak Bonus", callback_data="streak"), InlineKeyboardButton(text="🎟️ Scratch Card", callback_data="scratch")],
-        [InlineKeyboardButton(text="🏏 Predict & Win", callback_data="predict"), InlineKeyboardButton(text="🎲 Dice Game", callback_data="game_dice")],
-        [InlineKeyboardButton(text="⚡ Instant UPI Withdraw", callback_data="withdraw")]
+        [InlineKeyboardButton(text="🔥 📋 Hot CPA Loot Tasks", callback_data="tasks"), InlineKeyboardButton(text="🎬 🍿 Watch Video Ad (+2 🪙)", web_app=WebAppInfo(url=ad_url))],
+        [InlineKeyboardButton(text="🎟️ 🎁 Scratch & Win", callback_data="scratch"), InlineKeyboardButton(text="👛 💰 My Wallet", callback_data="wallet")],
+        [InlineKeyboardButton(text="👑 👥 Invite Agent (₹10)", callback_data="refer"), InlineKeyboardButton(text="🔥 📅 7-Day Streak", callback_data="streak")],
+        [InlineKeyboardButton(text="🏏 🎯 Predict & Win", callback_data="predict"), InlineKeyboardButton(text="🎲 ⚡ Lucky Dice", callback_data="game_dice")],
+        [InlineKeyboardButton(text="⚡ 💳 Instant UPI Bank Cashout ⚡", callback_data="withdraw")]
     ])
     await message.answer(text, parse_mode="Markdown", reply_markup=kb)
 
@@ -142,7 +153,7 @@ async def cmd_start(message: types.Message):
 async def show_wallet(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if is_spamming(user_id):
-        await callback.answer("⏳ कृपया धीरे क्लिक करें!")
+        await callback.answer("⏳ Please wait...")
         return
 
     conn = sqlite3.connect("database.db")
@@ -155,11 +166,13 @@ async def show_wallet(callback: types.CallbackQuery):
     
     inr_val = balance / COINS_PER_RUPEE
     await callback.message.answer(
-        f"👛 **आपका वॉलेट बैलेंस:**\n\n"
-        f"🪙 Coins: **{balance} Coins**\n"
-        f"💵 Value: **₹{inr_val:.2f}**\n"
-        f"🎟️ Available Scratch Cards: **{cards}**\n\n"
-        f"📌 *न्यूनतम विड्रॉल: 100 Coins (₹10)*",
+        f"💳 **ZYVARO WALLET DASHBOARD** 💳\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🪙 **Total Balance:** `{balance}` Coins\n"
+        f"💵 **Cash Value:** `₹{inr_val:.2f}` INR\n"
+        f"🎟️ **Available Scratch Cards:** `{cards}` Cards\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📌 *न्यूनतम विड्रॉल सीमा: 100 Coins (₹10)*",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -168,7 +181,7 @@ async def show_wallet(callback: types.CallbackQuery):
 async def show_tasks(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if is_spamming(user_id):
-        await callback.answer("⏳ Wait...")
+        await callback.answer()
         return
 
     conn = sqlite3.connect("database.db")
@@ -177,15 +190,15 @@ async def show_tasks(callback: types.CallbackQuery):
     tasks = cur.fetchall()
     conn.close()
 
-    text = "📋 **उपलब्ध टास्क (Only for New Users):**\n\n"
+    text = "🔥 **HOT CPA EARNING OFFERS (New Users Only)** 🔥\n━━━━━━━━━━━━━━━━━━━━\n"
     buttons = []
     for task_id, title, url, reward in tasks:
         track_url = f"{url}{user_id}"
-        buttons.append([InlineKeyboardButton(text=f"👉 {title} (+{reward} Coins)", url=track_url)])
+        buttons.append([InlineKeyboardButton(text=f"{title} ➔ (+{reward} 🪙)", url=track_url)])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.answer(
-        text + "⚠️ *नियम: अगर यह ऐप आपके फोन में पहले कभी डाउनलोड था, तो रिवॉर्ड नहीं मिलेगा।*",
+        text + "⚠️ *नियम: ऐप डाउनलोड करें और पहला ट्रांज़ैक्शन / साइनअप पूरा करें। कॉइन्स ऑटोमैटिक वॉलेट में जुड़ जाएंगे।*",
         parse_mode="Markdown",
         reply_markup=kb
     )
@@ -204,8 +217,8 @@ async def claim_streak(callback: types.CallbackQuery):
     last_checkin, streak = row[0], row[1]
 
     if now - last_checkin < day_sec:
-        remaining_hours = int((day_sec - (now - last_checkin)) / 3600)
-        await callback.message.answer(f"⏳ आप आज का बोनस ले चुके हैं! अगला बोनस **{remaining_hours} घंटे** बाद मिलेगा।")
+        rem_hrs = int((day_sec - (now - last_checkin)) / 3600)
+        await callback.message.answer(f"⏳ **आप आज का बोनस ले चुके हैं!**\nअगला चेक-इन **{rem_hrs} घंटे** बाद खुलेगा।")
         conn.close()
         await callback.answer()
         return
@@ -215,16 +228,16 @@ async def claim_streak(callback: types.CallbackQuery):
     else:
         streak = 1
 
-    reward = streak * 2  # Day 1 = 2 Coins, Day 7 = 14 Coins
+    reward = streak * 2 
     cur.execute("UPDATE users SET balance = balance + ?, last_checkin = ?, streak_days = ? WHERE user_id = ?",
                 (reward, now, streak, user_id))
     conn.commit()
     conn.close()
 
     await callback.message.answer(
-        f"🔥 **Day {streak} Streak Completed!**\n\n"
-        f"🎉 आपको मिले: **+{reward} Coins**\n"
-        f"लगातार 7 दिन बोट खोलें और बड़ा बोनस पाएं!",
+        f"🔥 **DAY {streak} STREAK CLAIMED!** 🔥\n\n"
+        f"🎉 आपको मिले: **+{reward} Coins** 🪙\n"
+        f"लगातार 7 दिन बोट खोलें और जैकपॉट पाएं!",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -238,20 +251,22 @@ async def open_scratch(callback: types.CallbackQuery):
     cards = cur.fetchone()[0]
 
     if cards <= 0:
-        await callback.message.answer("❌ आपके पास कोई स्क्रैच कार्ड नहीं है! नए ऐप्स डाउनलोड करके टास्क पूरा करें और स्क्रैच कार्ड पाएं।")
+        await callback.message.answer("❌ **कोई स्क्रैच कार्ड नहीं बचा है!**\nनए ऐप्स डाउनलोड करके टास्क पूरे करें और हर टास्क पर 1 फ्री स्क्रैच कार्ड पाएं।")
         conn.close()
         await callback.answer()
         return
 
-    win_amount = random.randint(10, 50)  # ₹1 से ₹5 रैंडम
+    win_amount = random.randint(10, 50)
     cur.execute("UPDATE users SET balance = balance + ?, scratch_cards = scratch_cards - 1 WHERE user_id = ?", (win_amount, user_id))
     conn.commit()
     conn.close()
 
     await callback.message.answer(
-        f"🎟️ **SCRATCH CARD RESULT**\n\n"
-        f"✨ आपने स्क्रैच किया और पाया...\n"
-        f"🎉 **+{win_amount} Bonus Coins!** आपके वॉलेट में जोड़ दिए गए हैं।",
+        f"✨ **SCRATCH & WIN JACKPOT!** ✨\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎉 बधाई! आपके स्क्रैच कार्ड में निकला:\n"
+        f"💰 **+{win_amount} Bonus Coins (₹{win_amount/10:.2f})**\n"
+        f"बैलेंस सीधे वॉलेट में जोड़ दिया गया है!",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -259,11 +274,12 @@ async def open_scratch(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "predict")
 async def predict_win(callback: types.CallbackQuery):
     await callback.message.answer(
-        "🏏 **Predict & Win Game**\n\n"
-        "आज के मैच में कौन सी टीम जीतेगी?\n"
+        "🏏 **IPL / Match Predict & Win Pool** 🎯\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "आज का मुकाबला कौन जीतेगा?\n"
         "🔹 एंट्री फीस: **5 Coins**\n"
-        "🔹 सही जवाब पर पूल प्राइज़ मिलेगा!\n\n"
-        "कमांड भेजें:\n`/vote TeamA` या `/vote TeamB`",
+        "🔹 सही जवाब पर **Mega Prize Pool** से कॉइन्स मिलेंगे!\n\n"
+        "वोट करने के लिए लिखें:\n`/vote TeamA` या `/vote TeamB`",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -275,9 +291,11 @@ async def show_refer(callback: types.CallbackQuery):
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
     
     await callback.message.answer(
-        f"👥 **Refer & Earn Program**\n\n"
+        f"👑 **BECOME A ZYVARO VIP AGENT** 👑\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
         f"अपने दोस्तों को अपने लिंक से जोड़ें:\n`{ref_link}`\n\n"
-        f"📌 **शर्त:** जब आपका दोस्त ऐप इंस्टॉल करके पहला टास्क पूरा करेगा, तभी आपको **100 Coins (₹10)** मिलेंगे!",
+        f"💰 **रिवॉर्ड नियम:**\n"
+        f"जब आपका दोस्त पहला ऐप इंस्टॉल करके पहला टास्क पूरा करेगा, तो आपको **100 Coins (₹10)** सीधे वॉलेट में मिलेंगे!",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -291,7 +309,7 @@ async def play_dice(callback: types.CallbackQuery):
     balance = cur.fetchone()[0]
 
     if balance < 10:
-        await callback.message.answer("❌ डाइस गेम खेलने के लिए कम से कम 10 Coins होने चाहिए!")
+        await callback.message.answer("❌ डाइस गेम के लिए कम से कम 10 Coins होने चाहिए!")
         conn.close()
         await callback.answer()
         return
@@ -299,10 +317,10 @@ async def play_dice(callback: types.CallbackQuery):
     dice_roll = random.randint(1, 6)
     if dice_roll >= 4:
         cur.execute("UPDATE users SET balance = balance + 5 WHERE user_id = ?", (user_id,))
-        msg = f"🎲 डाइस नंबर: **{dice_roll}**\n🎉 बधाई! आप जीत गए! (+5 Coins)"
+        msg = f"🎲 डाइस नंबर: **{dice_roll}**\n🎉 **JACKPOT! आप जीत गए!** (+5 Coins)"
     else:
         cur.execute("UPDATE users SET balance = balance - 10 WHERE user_id = ?", (user_id,))
-        msg = f"🎲 डाइस नंबर: **{dice_roll}**\n😢 आप हार गए! -10 Coins कट गए।"
+        msg = f"🎲 डाइस नंबर: **{dice_roll}**\n😢 **Bad Luck! आप हार गए!** (-10 Coins)"
     
     conn.commit()
     conn.close()
@@ -312,9 +330,10 @@ async def play_dice(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "withdraw")
 async def req_withdraw(callback: types.CallbackQuery):
     await callback.message.answer(
-        "💳 **विड्रॉल करने का तरीका:**\n\n"
+        "⚡ **INSTANT UPI CASHOUT** ⚡\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
         "चैट में यह कमांड लिखकर भेजें:\n`/payout <Coins> <UPI_ID>`\n\n"
-        "उदाहरण:\n`/payout 100 myname@okaxis`\n*(न्यूनतम 100 Coins = ₹10)*",
+        "📌 **उदाहरण:**\n`/payout 100 myname@okaxis`\n*(न्यूनतम 100 Coins = ₹10.00)*",
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -354,15 +373,17 @@ async def process_payout(message: types.Message):
     conn.close()
 
     inr_amount = coins / COINS_PER_RUPEE
-    await message.answer(f"✅ आपकी ₹{inr_amount:.2f} की विड्रॉल रिक्वेस्ट दर्ज हो गई है! जल्द ही ट्रांसफर कर दिया जाएगा।")
+    await message.answer(f"✅ **आपकी ₹{inr_amount:.2f} की रिक्वेस्ट दर्ज हो गई है!**\nएडमिन जल्द ही UPI में पैसे भेज देगा।")
 
-    # एडमिन को डायरेक्ट अलर्ट
+    # एडमिन को सीधा अलर्ट
     await bot.send_message(
         chat_id=ADMIN_ID,
-        text=f"🔔 **नई विड्रॉल रिक्वेस्ट!**\n\n"
-             f"👤 User ID: `{user_id}`\n"
-             f"💰 Coins: {coins} (₹{inr_amount:.2f})\n"
-             f"📍 UPI ID: `{upi_id}`",
+        text=f"🚨 **NEW WITHDRAWAL REQUEST!** 🚨\n"
+             f"━━━━━━━━━━━━━━━━━━━━\n"
+             f"👤 **User ID:** `{user_id}`\n"
+             f"💰 **Amount:** `{coins}` Coins (₹{inr_amount:.2f} INR)\n"
+             f"📍 **UPI Address:** `{upi_id}`\n"
+             f"━━━━━━━━━━━━━━━━━━━━",
         parse_mode="Markdown"
     )
 
@@ -387,7 +408,7 @@ async def claim_lifafa(message: types.Message):
 
     reward, max_claims, claimed_count = row[0], row[1], row[2]
     if claimed_count >= max_claims:
-        await message.answer("❌ यह लिफ़ाफ़ा कोड पूरा क्लेम हो चुका है!")
+        await message.answer("❌ यह लिफ़ाफ़ा पूरा क्लेम हो चुका है!")
         conn.close()
         return
 
@@ -403,14 +424,130 @@ async def claim_lifafa(message: types.Message):
     conn.commit()
     conn.close()
 
-    await message.answer(f"🎉 बधाई! आपको **+{reward} Coins** लिफ़ाफ़ा बोनस मिला।")
+    await message.answer(f"🎉 **बधाई! आपको +{reward} Coins का लिफ़ाफ़ा बोनस मिला!** 🎁")
 
-# --- 4. SECURE POSTBACK WEBHOOK ---
+# --- 4. VIDEO AD WEBPAGE (ADSGRAM INTEGRATION) ---
+@app.get("/watch-ad-page", response_class=HTMLResponse)
+async def watch_ad_page():
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Watch & Earn</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+        <style>
+            body {{
+                background: #090d16;
+                color: #ffffff;
+                font-family: sans-serif;
+                text-align: center;
+                padding: 30px 15px;
+            }}
+            .btn {{
+                background: linear-gradient(135deg, #2563eb, #7c3aed);
+                color: #fff;
+                border: none;
+                padding: 14px 28px;
+                font-size: 16px;
+                font-weight: bold;
+                border-radius: 10px;
+                cursor: pointer;
+                box-shadow: 0 4px 15px rgba(37,99,235,0.4);
+            }}
+            .card {{
+                background: #111827;
+                border: 1px solid #1f2937;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>🎬 Watch Video Ad & Earn</h2>
+            <p>15 सेकंड का वीडियो ऐड पूरा देखें और <b>+2 Coins</b> कमाएं!</p>
+            <p style="color: #9ca3af; font-size: 13px;">(Daily Limit: 10 Ads)</p>
+            <br>
+            <button class="btn" onclick="playAd()">▶️ Watch Video Ad</button>
+        </div>
+        <p id="msg" style="color: #34d399; font-weight: bold;"></p>
+
+        <script>
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+
+            const AdController = window.Adsgram.init({{ blockId: "{ADSGRAM_BLOCK_ID}" }});
+
+            function playAd() {{
+                AdController.show().then((result) => {{
+                    document.getElementById('msg').innerText = "✅ ऐड पूरा देखा गया! कॉइन्स ऐड हो रहे हैं...";
+                    
+                    fetch('/claim-ad-reward', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ 
+                            user_id: tg.initDataUnsafe.user.id,
+                            secret: "{POSTBACK_SECRET}"
+                        }})
+                    }}).then(() => {{
+                        setTimeout(() => {{ tg.close(); }}, 1500);
+                    }});
+                }}).catch((error) => {{
+                    document.getElementById('msg').innerText = "❌ ऐड लोड नहीं हुआ या बीच में बंद किया गया!";
+                }});
+            }}
+        </script>
+    </body>
+    </html>
+    """
+
+@app.post("/claim-ad-reward")
+async def claim_ad_reward(req: Request):
+    data = await req.json()
+    if data.get("secret") != POSTBACK_SECRET:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    user_id = data.get("user_id")
+    if not user_id:
+        return {"status": "error"}
+
+    now = int(time.time())
+    conn = sqlite3.connect("database.db")
+    cur = conn.cursor()
+    cur.execute("SELECT ads_watched_today, last_ad_time FROM users WHERE user_id = ?", (user_id,))
+    row = cur.fetchone()
+    
+    ads_count = row[0] if row else 0
+    last_ad = row[1] if row else 0
+
+    if now - last_ad < 20:  # 20s cooldown
+        conn.close()
+        return {"status": "cooldown"}
+
+    if ads_count >= 10:  # Daily limit
+        conn.close()
+        return {"status": "limit_reached"}
+
+    cur.execute("UPDATE users SET balance = balance + 2, ads_watched_today = ads_watched_today + 1, last_ad_time = ? WHERE user_id = ?", (now, user_id))
+    conn.commit()
+    conn.close()
+
+    try:
+        await bot.send_message(chat_id=user_id, text="🎬 **वीडियो रिवॉर्ड:** आपके वॉलेट में **+2 Coins** जोड़ दिए गए हैं!")
+    except Exception:
+        pass
+
+    return {"status": "success"}
+
+# --- 5. SECURE POSTBACK WEBHOOK ---
 @app.get("/postback")
 async def secure_postback(sub1: int, task_id: str, secret: str = ""):
-    # सीक्रेट की चेक करें ताकि कोई हैकर फेक रिक्वेस्ट न भेज सके
     if secret != POSTBACK_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden: Invalid Secret Key")
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     user_id = sub1
     conn = sqlite3.connect("database.db")
@@ -420,7 +557,7 @@ async def secure_postback(sub1: int, task_id: str, secret: str = ""):
     task = cur.fetchone()
     if not task:
         conn.close()
-        return {"status": "error", "message": "Invalid Task"}
+        return {"status": "error"}
 
     reward_coins = task[0]
 
@@ -429,12 +566,10 @@ async def secure_postback(sub1: int, task_id: str, secret: str = ""):
         conn.close()
         return {"status": "already_completed"}
 
-    # टास्क पूरा करें और स्क्रैच कार्ड + कॉइन दें
     now = int(time.time())
     cur.execute("INSERT INTO completed_tasks (user_id, task_id, timestamp) VALUES (?, ?, ?)", (user_id, task_id, now))
     cur.execute("UPDATE users SET balance = balance + ?, scratch_cards = scratch_cards + 1 WHERE user_id = ?", (reward_coins, user_id))
 
-    # रेफरल अनलॉक
     cur.execute("SELECT referred_by, referral_rewarded FROM users WHERE user_id = ?", (user_id,))
     user_data = cur.fetchone()
     if user_data and user_data[0] != 0 and user_data[1] == 0:
@@ -444,7 +579,7 @@ async def secure_postback(sub1: int, task_id: str, secret: str = ""):
         try:
             await bot.send_message(
                 chat_id=referrer_id,
-                text="🎉 आपके दोस्त ने पहला ऐप इंस्टॉल किया! आपका लॉक्ड **100 Coins (₹10)** रेफरल बोनस अनलॉक हो गया।"
+                text="🎉 **रेफरल अनलॉक!** आपके दोस्त ने पहला ऐप इंस्टॉल किया। आपको **+100 Coins (₹10)** मिले! 👑"
             )
         except Exception:
             pass
@@ -455,14 +590,14 @@ async def secure_postback(sub1: int, task_id: str, secret: str = ""):
     try:
         await bot.send_message(
             chat_id=user_id,
-            text=f"🎉 **टास्क स्वीकृत!** आपके वॉलेट में **{reward_coins} Coins** और **1 Scratch Card** जोड़ दिया गया है।"
+            text=f"🎉 **टास्क स्वीकृत!** आपके वॉलेट में **+{reward_coins} Coins** और **1 Lucky Scratch Card** 🎟️ जोड़ दिया गया है!"
         )
     except Exception:
         pass
 
     return {"status": "success"}
 
-# --- 5. START SERVER ---
+# --- 6. START SERVER ---
 async def start_bot():
     await dp.start_polling(bot)
 
